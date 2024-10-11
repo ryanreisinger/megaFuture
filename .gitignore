@@ -50,3 +50,6 @@ rsconnect/
 
 # Private data folder
 data_private/
+
+# Figures output
+out/figs/
