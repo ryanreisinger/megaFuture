@@ -16,7 +16,7 @@ library(pals)
 source("./scripts/99_theme_and_fig_size.R")
 
 hrs <- 6 # Time interval
-what_speed <- 5 # Speed threshold
+what_speed <- 12 # Speed threshold
 
 # -------------
 ## Metadata
@@ -29,6 +29,7 @@ meta <- read.csv("./out/fastOutMeta.csv", stringsAsFactors = F)
 ## Tracks
 # -------------
 
+# Read in and join all the standardised track files
 trk.fls <- list.files("./data_private/data_formatted/tracks/", full.names = T)
 trk.fls <- trk.fls[grepl(".csv", trk.fls)]
 
@@ -40,17 +41,19 @@ tracks <- tracks %>%
   dplyr::mutate(location_quality = ifelse(location_quality == "-3", "Z", location_quality)) %>%
   dplyr::mutate(location_quality = ifelse(location_quality == "-2", "B", location_quality)) %>%
   dplyr::mutate(location_quality = ifelse(location_quality == "-1", "A", location_quality)) %>%
-  dplyr::mutate(location_quality = ifelse(location_quality == "8", NA, location_quality)) %>%
-  dplyr::mutate(location_quality = ifelse(location_quality == " ", NA, location_quality)) %>%
-  dplyr::mutate(location_quality = ifelse(location_quality == "Z", "B", location_quality))
+  dplyr::mutate(location_quality = ifelse(location_quality == "8", "Z", location_quality)) %>%
+  dplyr::mutate(location_quality = ifelse(location_quality == " ", "Z", location_quality))
 
 # -------------
 # Dates
 tracks$date <- ymd_hms(tracks$date)
 
 # -------------
-## Where there is metadata, filter locations before deployment date
+# Remove any duplicate rows from tracks
+tracks <- tracks[!duplicated(tracks), ]
 
+# -------------
+## Where there is metadata, filter locations before deployment date
 ids <- unique(tracks$individual_id)
 ids <- ids[!is.na(ids)]
 
@@ -78,7 +81,7 @@ rm(ids, new.dat)
 
 # -------------
 # Filter individuals not to use
-tracks <- dplyr::filter(tracks, individual_id != 112694)
+# tracks <- dplyr::filter(tracks, individual_id != 112694)
 # tracks <- dplyr::filter(tracks, individual_id != 20683)
 tracks <- dplyr::filter(tracks, individual_id != "Mn_WAVES14_Lander01")
 tracks <- dplyr::filter(tracks, individual_id != "Entangled whale")
@@ -106,12 +109,13 @@ dat <- dplyr::rename(dat,
 
 #--------------------------------------------------------------------------
 ## Remove short deployments
-nlocs <- dat %>%
+if (FALSE) {
+  nlocs <- dat %>%
   group_by(id) %>%
   tally %>%
   filter(., n > 2)
-
 dat <- dplyr::filter(dat, dat$id %in% nlocs$id)
+}
 
 ## Drop the handful of records with no date information
 dat <- dplyr::filter(dat, !is.na(dat$date))
@@ -125,7 +129,7 @@ dat <- dplyr::filter(dat, dat$lc != "Tagging")
 
 #--------------------------------------------------------------------------
 ## Prefilter
-# dat <- aniMotum::fit_ssm(x = dat, pf = TRUE) # This is failing with a strange error
+# dat <- aniMotum::fit_ssm(x = dat, pf = TRUE) # Might fail, done individually below
 
 ## Prefilter individually to avoid errors with projection
 ids <- unique(dat$id)
@@ -137,6 +141,10 @@ for (i in ids) {
   this.d <- dat[dat$id == i, ]
   this.d <- this.d[complete.cases(this.d), ]
   if(nrow(this.d) >2) {
+    # If the first location of this.d is class Z, A, or B, then remove it
+    if(this.d[1, "lc"] %in% c("Z", "A", "B")) {
+      this.d <- this.d[-1, ]
+    }
   this.d <- fit_ssm(this.d, vmax = what_speed, pf = TRUE, spdf = TRUE)
   this.d <- st_transform(this.d, crs = "+proj=longlat +datum=WGS84")
   pts <- st_coordinates(this.d)
@@ -156,13 +164,14 @@ rm(all.d)
 ## Split tracks with large gaps
 ## into segments
 
-## Filter
+## Filter out individuals with less than 3 locations
+if (FALSE) {
 nlocs <- dat %>%
   group_by(id) %>%
   tally %>%
   filter(., n > 2)
-
 dat <- dplyr::filter(dat, dat$id %in% nlocs$id)
+}
 
 int.thresh <- 3 # Gap threshold in days
 
@@ -190,12 +199,13 @@ rm(all.d)
 
 # ----------------------
 ## Filter again to remove fragments
+if (FALSE) {
 nlocs <- dat %>%
   group_by(id) %>%
   tally %>%
   filter(., n > 2)
-
 dat <- dplyr::filter(dat, dat$id %in% nlocs$id)
+}
 
 
 #--------------------------------------------------------------------------
@@ -214,7 +224,7 @@ if(TRUE) {
     tryCatch({
       ## Fit SSM
       this_fit <- aniMotum::fit_ssm(this_dat, pf = FALSE, spdf = FALSE,
-                                    model = "rw",
+                                    model = "crw",
                                     time.step = hrs,
                                     vmax = what_speed)
       ## Grab the output
@@ -230,11 +240,12 @@ if(TRUE) {
   }
   
   
-  # Filter out tracks with less than 3 points
+  # Filter out tracks with less than 1 day of data
+  n_points <- 24/hrs
   nlocs <- out %>%
     group_by(id) %>%
     tally %>%
-    filter(., n > 2)
+    filter(., n > n_points)
   out <- dplyr::filter(out, out$id %in% nlocs$id)
   
   # Check a plot of each track
@@ -291,11 +302,34 @@ mpm_out <- rbind(mpm_out, this_mpm_out)
   }, error = function(e){cat("ERROR :",conditionMessage(e), "\n")})
 }
 
-## Save output
+
+# Some tracks have suspect first locations, drop these
+
+suspect_ids <- c("53348_segment1",
+                 "131161_segment0",
+                 "131187_segment0",
+                 "112692_segment0",
+                 "131143_segment0",
+                 "131133_segment0",
+                 "32934_segment1",
+                 "142929_segment0",
+                 "142932_segment0")
+hold <- data.frame()
+ids <- unique(mpm_out$id)
+for (i in ids) {
+  print(i)
+  this_out <- dplyr::filter(mpm_out, id == i)
+  if (i %in% suspect_ids) {
+    this_out <- this_out[-1, ]
+  }
+  hold <- rbind(hold, this_out)
+}
+
+mpm_out <- hold
+
+# Coordinates
 mpm_out$lon <- mpm_out$x
 mpm_out$lat <- mpm_out$y
-
-saveRDS(mpm_out, paste0("./out/aniMotum_mpm_", hrs, ".RDS"))
 
 ## How many segments?
 length(unique(mpm_out$id))
@@ -303,11 +337,17 @@ length(unique(mpm_out$id))
 # How many individuals?
 splitfun <- function(string = "53348_segment0") {
 split_string <- strsplit(string, "_")
-split_string <- unlist(split_string)[1]
+split_string <- unlist(split_string)[[1]]
 return(split_string)
 }
-split_ids <- lapply(mpm_out$id, splitfun)
+split_ids <- unlist(lapply(mpm_out$id, splitfun))
 length(unique(split_ids))
+
+# Add original ID back to mpm_out
+mpm_out$id_original <- split_ids
+
+## Save output
+saveRDS(mpm_out, paste0("./out/aniMotum_mpm_", hrs, ".RDS"))
 
 ## Plot move persistence against latitude
 ## to get an idea of a sensible cutoff
@@ -337,6 +377,7 @@ ggplot(data = mpm_out, aes(x = lon, y = lat, colour = g)) +
 
 ## Calculate bearings for map
 
+if (FALSE) {
 # TODO: Replace SOmap here
 ## Map in SOmap
 prj <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
@@ -398,12 +439,14 @@ dev.off()
 
 
 
-
+}
 
 #--------------------------------------------------------------------------
 ## OR
 ## Alternatively to fitting a mpm, 
 ## fit the SSM in bsam
+
+# Fit bsam SSMs in one go
 if (FALSE) {
   library(bsam)
   fit <- bsam::fit_ssm(dat, tstep = 0.5, model = "DCRWS") # Fails
@@ -411,8 +454,10 @@ if (FALSE) {
 
 #--------------------------------------------------------------------------
 ## OR
-## Fit bsam SSMs one-by-one, skipping errors # Doesn't deal with dateline crossing
+## Fit bsam SSMs one-by-one, skipping errors
+# Doesn't deal with dateline crossing
 ## Save each individual, for running in batches
+
 if (FALSE) {
   ids <- unique(dat$id)
   all.fit <- data.frame()
@@ -435,6 +480,10 @@ if (FALSE) {
     
   }
   
+  # Save all
+  saveRDS(all.fit, paste0("./out/bsam_ssm_", hrs, ".RDS"))
+  
+  
   # Check a plot of each track
   ids <- unique(all.fit$id)
   
@@ -442,8 +491,41 @@ if (FALSE) {
   for (i in ids) {
     print(i)
     this.d <- all.fit[all.fit$id == i, ]
-    print(SOmap_auto(this.d$lon, this.d$lat, pcol = as.factor(this.d$b.5)), main = i)
-  }
+    p <- ggplot(data = this.d, aes(x = lon,
+                                   y = lat,
+                                   colour = as.factor(this.d$b.5),
+                                   fill = as.factor(this.d$b.5))) +
+      geom_path(inherit.aes = FALSE, aes(x = lon,
+                                         y = lat)) +
+      geom_point() +
+      coord_quickmap() +
+      labs(title = i)
+    print(p)
+     }
   dev.off()
+  
+  # Plot all
+  ggplot(data = foo, aes(x = lon,
+                             y = lat,
+                             colour = as.factor(b.5),
+                             fill = as.factor(b.5))) +
+    geom_point() +
+    coord_quickmap()
+
+  # TODO: Drop stubs
+  nlocs <- all.fit %>%
+    group_by(id) %>%
+    tally %>%
+    filter(., n > 2)
+  all.fit <- dplyr::filter(all.fit, all.fit$id %in% nlocs$id)
+  
+  # How many individuals?
+  splitfun <- function(string = "53348_segment0") {
+    split_string <- strsplit(string, "_")
+    split_string <- unlist(split_string)[1]
+    return(split_string)
+  }
+  split_ids <- lapply(all.fit$id, splitfun)
+  length(unique(split_ids))
   
 }
