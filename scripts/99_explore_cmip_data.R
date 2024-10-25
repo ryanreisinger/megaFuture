@@ -1,6 +1,7 @@
 library(rcmip6)
 library(dplyr)
 library(tidyr)
+library(terra)
 
 # Create a vector of the variables we are interested in
 which_variables <- c("tos", "siconc", "tauuo", "tauvo", "uo", "vo", "mlotst", "so", "zos", "chl")
@@ -115,14 +116,30 @@ cmip_size(results)/1e+6
 unique(summary_table$source_id)
 
 
-# Download the data
-this_result <- filter(results, source_id == "CESM2")
+# Filter to get a specific model
+which_model <- "CESM2"
+this_result <- filter(results, source_id == which_model)
 
 # Filter results to include only member_id including 'r1'
+# This is the first realization of the model
+# TODO: if there are multiple forcings and physics, choose the first
+# TODO: if there are native and regridded grids, choose regridded
 this_result <- filter(this_result, grepl("r1i", member_id))
-cmip_simplify(this_result)
+write.csv(filter(summary_table, source_id == which_model), paste0("out/cmip6/summaries/cmip6_summary_table_", which_model, ".csv"), row.names = FALSE)
 
 # Check
 cmip_info(this_result)
 cmip_size(this_result)/1e+6 # size in terrabytes
-# cmip_download(results, dest_folder = "data/cmip6")
+cmip_size(this_result)/1000 # size in gigabytes
+
+# Download the data
+# Define the download folder
+cmip_root_set("/Volumes/roamer/cmip6_data/")   # Set the root folder where to save files 
+# dir.create(cmip_root_get()) # Create the folder if it doesn't exist
+files <- cmip_download(this_result) # Download the data
+
+# Read in a file to check
+t <- terra::rast("/Volumes/roamer/cmip6_data/CMIP6/CMIP/NCAR/CESM2/historical/r1i1p1f1/Omon/chl/gr/20190308/chl_Omon_CESM2_historical_r1i1p1f1_gr_185001-201412.nc")
+
+# Plot the last layer of the raster
+terra::plot(t, nlyr(t), col = terrain.colors(100))
