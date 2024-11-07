@@ -1,5 +1,5 @@
-#UAS Failures: BCC-CSM2-MR_ssp126, BCC-CSM2-MR_historical, BCC-CSM2-MR_ssp585, CAS-ESM2-0_ssp585, CAS-ESM2-0_historical
-
+#UAS and VAS Failures: BCC-CSM2-MR_ssp126, BCC-CSM2-MR_historical, BCC-CSM2-MR_ssp585
+#check VAS CAS_ESM2-0
 #-----------------------------
 # Explore and download by variable
 #-----------------------------
