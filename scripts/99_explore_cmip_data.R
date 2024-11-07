@@ -2,14 +2,26 @@ library(rcmip6)
 library(dplyr)
 library(tidyr)
 library(terra)
+library(ncdf4)
 
 # Create a vector of the variables we are interested in
-which_variables <- c("tos", "siconc", "tauuo", "tauvo", "uo", "vo", "mlotst", "so", "zos", "chl")
+which_variables <- c("tos", "siconc", "mlotst", "sos", "zos", "chlos", "sfcWind")
 
-# Notes:
-# - tos: sea surface temperature versus thetaao: potential temperature?
-# - taouo: zonal wind stress and tauvo: meridional wind stress, uas and vas is wind speed
-# - uo: zonal velocity and vo: meridional velocity
+# Variables
+# https://iacweb.ethz.ch/staff/beyerleu/cmip6/CMIP6_MIP_tables.xlsx
+
+# - tos: Sea Surface Temperature
+# - siconc: Sea-Ice Area Percentage (Ocean Grid)
+# - taouo: Surface Downward X Stress
+# - tauvo: Surface Downward Y Stress
+# - uo: Sea Water X Velocity
+# - vo: Sea Water Y Velocity
+# - mlotst: Ocean Mixed Layer Thickness Defined by Sigma T
+# - sos: Sea Surface Salinity
+# - zos: Sea Surface Height Above Geoid
+# - chlos: Surface Mass Concentration of Total Phytoplankton Expressed as Chlorophyll in Sea Water
+
+# so, uo, vo don't have surface-only equivalents
 
 # Which scenario do we want?
 which_scenarios <- c("historical", "ssp126", "ssp585")
@@ -32,7 +44,7 @@ query <- list(
 results <- cmip_search(query)
 cmip_info(results)
 
-# Simplify and show the results
+# Simplify and look at the results
 results |> 
   cmip_simplify() |>   # To keep only the most informative columns
   subset(, select = -full_info) |> 
@@ -42,8 +54,15 @@ results |>
 results
 
 # Summary table (from James Grecian)
-df <- cmip_simplify(results) %>% tibble() %>% dplyr::select(source_id, experiment_id, member_id, variable_id, grid_label, nominal_resolution)
-df <- df %>% pivot_wider(names_from = variable_id, values_from = variable_id, values_fill = list(variable_id = NA))
+df <- cmip_simplify(results) %>%
+  tibble() %>% 
+  dplyr::select(source_id, experiment_id, member_id, variable_id, grid_label, nominal_resolution)
+
+df <- df %>% distinct()
+
+df <- df %>% 
+  pivot_wider(names_from = variable_id, values_from = variable_id, values_fill = list(variable_id = NA))
+
 df %>% arrange(source_id)
 
 # dplyr::filter(results, member_id == "r1i1p1f1") |> 
@@ -65,7 +84,7 @@ which_sources <-
   results |> 
   cmip_simplify() |> 
   group_by(source_id) |> 
-  filter(!any(nominal_resolution == "250 km")) |> # drop model if it has 250 km resolution
+  #filter(!any(nominal_resolution == "250 km")) |> # drop model if it has 250 km resolution
   summarise(n = n_distinct(variable_id)) |> 
   filter(n == length(unique(query$variable_id))) |> 
   pull(source_id)
@@ -87,6 +106,7 @@ cmip_info(results)
 
 # Summary table again
 df <- cmip_simplify(results) %>% tibble() %>% dplyr::select(source_id, experiment_id, member_id, variable_id, grid_label, nominal_resolution)
+df <- df %>% distinct()
 df <- df %>% pivot_wider(names_from = variable_id, values_from = variable_id, values_fill = list(variable_id = NA))
 df %>% arrange(source_id)
 
@@ -115,6 +135,9 @@ cmip_size(results)/1e+6
 # Which modelling centers?
 unique(summary_table$source_id)
 
+#-----------------------------
+# Explore and download a specific model
+#-----------------------------
 
 # Filter to get a specific model
 which_model <- "CESM2"
@@ -132,14 +155,24 @@ cmip_info(this_result)
 cmip_size(this_result)/1e+6 # size in terrabytes
 cmip_size(this_result)/1000 # size in gigabytes
 
+#-----------------------------
 # Download the data
+#-----------------------------
+
 # Define the download folder
 cmip_root_set("/Volumes/roamer/cmip6_data/")   # Set the root folder where to save files 
 # dir.create(cmip_root_get()) # Create the folder if it doesn't exist
 files <- cmip_download(this_result) # Download the data
 
+#-----------------------------
+# After download
+#-----------------------------
+
 # Read in a file to check
-t <- terra::rast("/Volumes/roamer/cmip6_data/CMIP6/CMIP/NCAR/CESM2/historical/r1i1p1f1/Omon/chl/gr/20190308/chl_Omon_CESM2_historical_r1i1p1f1_gr_185001-201412.nc")
+t <- terra::rast("/Volumes/roamer/cmip6_data/CMIP6/CMIP/NCAR/CESM2/historical/r1i1p1f1/Omon/chlos/gr/20190308/chlos_Omon_CESM2_historical_r1i1p1f1_gr_185001-201412.nc")
 
 # Plot the last layer of the raster
 terra::plot(t, nlyr(t), col = terrain.colors(100))
+
+# Check characteristics of the netcdf
+t_n <- ncdf4::nc_open("/Volumes/roamer/cmip6_data/CMIP6/CMIP/NCAR/CESM2/historical/r1i1p1f1/Omon/chl/gr/20190308/chl_Omon_CESM2_historical_r1i1p1f1_gr_185001-201412.nc")
