@@ -12,23 +12,36 @@ library(tidyr)
 library(terra)
 library(ncdf4)
 
-# Get the results
-results <- readRDS("output/cmip6/cmip6_results.rds")
-
-# Get the summary table
-summary_table <- read.csv("output/cmip6/cmip6_summary_table.csv")
-
 # List of all variables
-vars <- names(summary_table)[6:13]
+vars <- c("uas", "vas", "chlos", "sos", "tos", "zos", "mlotst", "siconc")
 
 # Choose a variable
-which_var <- "vas"
+which_var <- "siconc"
 
-# Filter results to include only the chosen variable
-this_result <- filter(results, variable_id == which_var)
+# Setup a search query
+query <- list(
+  type               = "Dataset",
+  # institution_id     = "CCCma",
+  replica            = "false",
+  latest             = "true",
+  variable_id        = which_var,
+  project            = "CMIP6",
+  frequency          = "mon",                          
+  # table_id           = c("Omon", "SImon"),
+  experiment_id      = c("historical", "ssp126", "ssp585")
+)
+
+# Get available models
+this_result <- cmip_search(query)
 
 # Filter to only native grids
 this_result <- filter(this_result, grid_label == "gn")
+
+# Remove models with data download issues
+this_result <- filter(this_result, source_id != "BCC-CSM2-MR" & source_id != "TaiESM1")
+
+# Keep only members from run 1
+this_result <- filter(this_result, grepl("r1i", member_id))
 
 # Remove members with data for fewer than three scenarios
 incomplete <- this_result %>% 
@@ -38,13 +51,16 @@ incomplete <- this_result %>%
 this_result <- this_result %>% 
   anti_join(incomplete, by = c("source_id", "member_id", "nominal_resolution"))
 
-# Are there multiple members for some experiments?
+# Remove any excess members for some experiments
 members <- this_result %>% 
   group_by(source_id, experiment_id) %>% 
   arrange(member_id) %>%
   slice(1) %>% 
   ungroup()
-nrow(anti_join(this_result, members, by = c("source_id", "experiment_id", "member_id")))
+excess <- this_result %>% 
+  anti_join(members, by = c("source_id", "experiment_id", "member_id"))
+this_result <- this_result %>% 
+  anti_join(excess)
 
 # Only keep resolutions of 100km
 this_result <- filter(this_result, nominal_resolution == "100 km")
@@ -69,19 +85,12 @@ cmip_size(this_result)/1000 # size in gigabytes
 # Set working directory to hard drive
 setwd("E://")
 
-cmip_root_set("cmip6_data")   # Set the root folder where to save files 
-# dir.create(cmip_root_get()) # Create the folder if it doesn't exist
-files <- cmip_download(this_result, year_range = c(1985, 2100)) # Download the data
+# Set the root folder where to save files 
+cmip_root_set("cmip6_data")   
 
-#-----------------------------
-# After download
-#-----------------------------
+# Configure download settings to only retry once if slow speeds
+cmip_download_config(retry = 2)
 
-# Read in a file to check
-t <- terra::rast("/Volumes/roamer/cmip6_data/CMIP6/CMIP/NCAR/CESM2/historical/r1i1p1f1/Omon/chlos/gr/20190308/chlos_Omon_CESM2_historical_r1i1p1f1_gr_185001-201412.nc")
+# Download the files
+files <- cmip_download(this_result, year_range = c(1985, 2100)) 
 
-# Plot the last layer of the raster
-terra::plot(t, nlyr(t), col = terrain.colors(100))
-
-# Check characteristics of the netcdf
-t_n <- ncdf4::nc_open("/Volumes/roamer/cmip6_data/CMIP6/CMIP/NCAR/CESM2/historical/r1i1p1f1/Omon/chl/gr/20190308/chl_Omon_CESM2_historical_r1i1p1f1_gr_185001-201412.nc")
