@@ -1,5 +1,3 @@
-#UAS and VAS Failures: BCC-CSM2-MR_ssp126, BCC-CSM2-MR_historical, BCC-CSM2-MR_ssp585
-#check VAS CAS_ESM2-0
 #-----------------------------
 # Explore and download by variable
 #-----------------------------
@@ -9,14 +7,12 @@ setwd("C:/Users/jcw2g17/OneDrive - University of Southampton/Documents/Humpbacks
 library(rcmip6)
 library(dplyr)
 library(tidyr)
-library(terra)
-library(ncdf4)
 
 # List of all variables
 vars <- c("uas", "vas", "chlos", "sos", "tos", "zos", "mlotst", "siconc")
 
 # Choose a variable
-which_var <- "siconc"
+which_var <- "chlos"
 
 # Setup a search query
 query <- list(
@@ -38,7 +34,8 @@ this_result <- cmip_search(query)
 this_result <- filter(this_result, grid_label == "gn")
 
 # Remove models with data download issues
-this_result <- filter(this_result, source_id != "BCC-CSM2-MR" & source_id != "TaiESM1")
+error_models <- c("BCC-CSM2-MR", "TaiESM1", "NESM3")
+this_result <- filter(this_result, !source_id %in% error_models)
 
 # Keep only members from run 1
 this_result <- filter(this_result, grepl("r1i", member_id))
@@ -88,9 +85,13 @@ setwd("E://")
 # Set the root folder where to save files 
 cmip_root_set("cmip6_data")   
 
-# Configure download settings to only retry once if slow speeds
-cmip_download_config(retry = 2)
+# Configure download settings 
+config <- cmip_download_config(retry = 2, #only retry downloads once under slow speeds
+                     low_speed_limit = 100000, # if download slower than 100kb/s, skip
+                     low_speed_time = 15) # give model 15 seconds to try and download
 
 # Download the files
-files <- cmip_download(this_result, year_range = c(1985, 2100)) 
+files <- cmip_download(this_result, 
+                       year_range = c(1985, 2100), 
+                       download_config = config) 
 

@@ -1,0 +1,17 @@
+﻿Institute,Model,uas,vas,chlos,sos,zos,tos,mlotst,siconc
+AWI,AWI-CM-1-1-MR,con,con,,,,,,
+CAMS,CAMS-CSM1-0,bil,bil,,,bil,bil,bil,bil
+CAS,CAS-ESM2-0,bil,bil,,bil,bil,bil,,bil
+CAS,FGOALS-g3,,,,bil,bil,bil,,bil
+CCCma,CanESM5,,,con,con,con,con,con,con
+CMCC,CMCC-ESM2,bil,bil,,,,,,
+CNRM-CERFACS,CNRM-ESM2-1,,,con,con,con,con,con,con
+EC-Earth-Consortium,EC-Earth3,,,,bil,bil,bil,bil,
+MIROC,MIROC-ES2H,,,bil,bil,bil,bil,,bil
+MIROC,MIROC6,,,,,,,bil,
+MOHC,HadGEM3-GC31-LL,,,,bil,bil,bil,bil,bil
+MOHC,HadGEM3-GC31-MM,bil,bil,,,,,,
+MOHC,UKESM1-0-LL,,,bil,bil,bil,bil,bil,bil
+MPI-M,MPI-ESM1-2-HR,bil,bil,,,,,,
+MRI,MRI-ESM2-0,con,con,,con,con,con,con,con
+NCC,NorESM2-MM,,,bil,bil,bil,bil,bil,bil

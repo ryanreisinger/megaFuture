@@ -30,7 +30,7 @@ cmip_mean_calc <- function(scenario){
       next
     }
     
-    if(scenario != "historical" & max(year(time(r))) < 2071){
+    if(scenario != "historical" & max(year(time(r))) < 2070){
       next
     }
     
@@ -48,12 +48,35 @@ cmip_mean_calc <- function(scenario){
   }
   
   if(scenario != "historical"){
-    full_rast <- full_rast[[year(time(full_rast)) >= 2071 & year(time(full_rast)) <= 2100]]
+    full_rast <- full_rast[[year(time(full_rast)) >= 2070 & year(time(full_rast)) <= 2099]]
   }
   
-  #calculate average values for this period
-  mean_rast <- mean(full_rast, na.rm = TRUE)
+  #calculate average per month
+  for(i in 1:12){
+    this_month <- i
+    
+    #extract all rasters for this month
+    monthly_rast <- full_rast[[month(time(full_rast)) == this_month]]
+    
+    #check that there are exactly 30 rasters
+    if(nlyr(monthly_rast) != 30){
+      stop(paste0("Error: not exactly 30 rasters for month", this_month))
+    }
+    
+    #calculate average values for this month
+    month_mean <- mean(monthly_rast, na.rm = TRUE)
+    
+    #assign a time as the first time of the monthly rast
+    time(month_mean) <- time(monthly_rast)[1]
+    
+    #join to all monthly means
+    if(!exists("mean_rast")){
+      mean_rast <- month_mean
+    } else {
+      mean_rast <- c(mean_rast, month_mean)
+    }
+  }
+  
+  #return mean raster
+  return(mean_rast)
 }
-
-#return mean raster
-return(mean_rast)
