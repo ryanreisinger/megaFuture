@@ -6,18 +6,26 @@ rm(list=ls())
 
 {
   library(terra)
+  library(lubridate)
 }
+
+
+#define variable 
+which_var <- "chlos"
 
 #set working directory to delta folder
 setwd(paste0("E:/cmip6_data/CMIP6/deltas/", which_var))
 
-#define variable 
-which_var <- "uas"
+#read in info on the models available for each variable
+model_info <- read.csv("C:/Users/jcw2g17/OneDrive - University of Southampton/Documents/Humpbacks/code/out/cmip6/cmip6_final_models.csv")
+
+#isolate models where variable is available
+var_models <- model_info %>% 
+  select(Institute, Model, all_of(which_var)) %>%
+  filter(across(3) != "")
 
 #list all models (use spreadsheet to automate this)
-#if any repeated modelling groups, eliminate one model
-models <- c("AWI-CM-1-1-MR", "CAS-ESM2-0", "CMCC-ESM2",
-            "HadGEM3-GC31-MM", "MPI-ESM1-2-HR", "MRI-ESM2-0")
+models <- var_models$Model
 
 
 # 1. SSP126
@@ -25,7 +33,7 @@ models <- c("AWI-CM-1-1-MR", "CAS-ESM2-0", "CMCC-ESM2",
 #list all SSP126 delta rasters
 deltas <- list.files(path="ssp126/")
 
-#filter to only include models listed earlier (i.e. no duplicates)
+#filter to ensure that only models listed earlier are used (i.e. no duplicates)
 deltas <- deltas[grep(paste(models, collapse="|"), deltas)]
 
 #read in and combine all deltas
@@ -40,12 +48,29 @@ for(i in deltas){
   
   rm(this_delta)
 }
+
+#calculate average delta per month
+for(i in 1:12){
   
-#calculate average delta
-mean_ssp126_delta <- mean(ssp126_delta)
+  #extract all deltas for this month
+  this_month <- ssp126_delta[[month(time(ssp126_delta)) == i]]
+  
+  #average this months deltas
+  this_month_mean <- mean(this_month)
+  
+  #assign time
+  time(this_month_mean) <- time(this_month)[1]
+  
+  #join to deltas for all months
+  if(i == 1){
+    ssp126_mean_delta <- this_month_mean
+  } else {
+    ssp126_mean_delta <- c(ssp126_mean_delta, this_month_mean)
+  }
+}
 
 #visualise
-plot(mean_ssp126_delta)
+plot(ssp126_mean_delta)
 
 
 # 2. SSP585
@@ -69,20 +94,34 @@ for(i in deltas){
   rm(this_delta)
 }
 
-#calculate average delta
-mean_ssp585_delta <- mean(ssp585_delta)
+#calculate average delta per month
+for(i in 1:12){
+  
+  #extract all deltas for this month
+  this_month <- ssp585_delta[[month(time(ssp585_delta)) == i]]
+  
+  #average this months deltas
+  this_month_mean <- mean(this_month)
+  
+  #assign time
+  time(this_month_mean) <- time(this_month)[1]
+  
+  #join to deltas for all months
+  if(i == 1){
+    ssp585_mean_delta <- this_month_mean
+  } else {
+    ssp585_mean_delta <- c(ssp585_mean_delta, this_month_mean)
+  }
+}
 
 #visualise
-plot(mean_ssp585_delta)
+plot(ssp585_mean_delta)
 
 
 # 3. Export
 
 #export ssp126
-writeCDF(mean_ssp126_delta, filename = paste0("ssp126/mean_ssp126_", which_var, "_delta.nc"))
+writeCDF(ssp126_mean_delta, filename = paste0("ssp126/mean_ssp126_", which_var, "_delta.nc"))
 
 #export ssp585
-writeCDF(mean_ssp585_delta, filename = paste0("ssp585/mean_ssp585_", which_var, "_delta.nc"))
-
-#export final model list
-saveRDS(models, file = paste0("models_", which_var, ".rds"))
+writeCDF(ssp585_mean_delta, filename = paste0("ssp585/mean_ssp585_", which_var, "_delta.nc"))
