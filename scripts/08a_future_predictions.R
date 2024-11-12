@@ -1,4 +1,6 @@
-#predicting circumpolar habitat by month
+#-----------------------------
+# Predict future circumpolar habitat by month
+#-----------------------------
 
 rm(list=ls())
 setwd("~/OneDrive - University of Southampton/Documents/Humpbacks")
@@ -11,20 +13,20 @@ setwd("~/OneDrive - University of Southampton/Documents/Humpbacks")
   library(tidyterra)
 }
 
+#define scenario
+this.scenario <- "ssp585"
 
 # 1. Read in monthly variables and predict each regional model
 
 #read in monthly dynamic variables
-sst <- rast("D:/Satellite_Data/monthly/sst/sst.nc")
-ssh <- rast("D:/Satellite_Data/monthly/ssh/ssh.nc")
-sal <- rast("D:/Satellite_Data/monthly/sal/sal.nc")
-mld <- rast("D:/Satellite_Data/monthly/mld/mld.nc")
-sic <- rast("D:/Satellite_Data/monthly/sic/sic.nc")
-uo <- rast("D:/Satellite_Data/monthly/uo/uo.nc")
-vo <- rast("D:/Satellite_Data/monthly/vo/vo.nc")
+sst <- rast(paste0("E:/cmip6_data/CMIP6/deltas/tos/satellite_data/monthly_transformed_", this.scenario, ".nc"))
+ssh <- rast(paste0("E:/cmip6_data/CMIP6/deltas/zos/satellite_data/monthly_transformed_", this.scenario, ".nc"))
+sal <- rast(paste0("E:/cmip6_data/CMIP6/deltas/sos/satellite_data/monthly_transformed_", this.scenario, ".nc"))
+mld <- rast(paste0("E:/cmip6_data/CMIP6/deltas/mlotst/satellite_data/monthly_transformed_", this.scenario, ".nc"))
+sic <- rast(paste0("E:/cmip6_data/CMIP6/deltas/siconc/satellite_data/monthly_transformed_", this.scenario, ".nc"))
 
 #create stack
-dynamic <- c(sst, ssh, sal, mld, sic, uo, vo)
+dynamic <- c(sst, ssh, sal, mld, sic)
 
 #limit to target years and months
 min_year <- 2001
@@ -35,12 +37,12 @@ dynamic <- dynamic[[month(time(dynamic)) %in% months &
                       year(time(dynamic)) <= max_year]]
 
 #cleanup
-rm(sst, ssh, sal, mld, sic, uo, vo)
+rm(sst, ssh, sal, mld, sic)
 
 #read in static variables
-depth <- rast("D:/Satellite_Data/static/depth/depth.nc")
-dshelf <- rast("D:/Satellite_Data/static/dshelf/dshelf_resampled.nc")
-slope <- rast("D:/Satellite_Data/static/slope/slope.nc")
+depth <- rast("E:/Satellite_Data/static/depth/depth.nc")
+dshelf <- rast("E:/Satellite_Data/static/dshelf/dshelf_resampled.nc")
+slope <- rast("E:/Satellite_Data/static/slope/slope.nc")
 
 #create stack
 static <- c(depth, dshelf, slope)
@@ -49,9 +51,13 @@ names(static) <- c("depth", "dshelf", "slope")
 #cleanup
 rm(depth, dshelf, slope)
 
+#resample static variables to dynamic resolution, crs, and extent
+static <- resample(static, dynamic, method = "bilinear", threads = T)
+
 #crop to target area
 e <- ext(-180, 180, -80, -40)
 static <- crop(static, e)
+dynamic <- crop(dynamic, e)
 
 #cleanup
 rm(min_year, max_year, months)
@@ -80,13 +86,7 @@ for(i in months){
   
   #extract dynamic variables for this month
   stack <- dynamic[[time(dynamic) == this.month]]
-  names(stack) <- c("sst", "ssh", "sal", "mld", "sic", "uo", "vo")
-  
-  #create current layer
-  stack$curr <- sqrt(stack$vo^2 + stack$uo^2)
-  
-  #remove uo and vo
-  stack <- subset(stack, c("uo", "vo"), negate=T)
+  names(stack) <- c("sst", "ssh", "sal", "mld", "sic")
   
   #change sic NAs to 0s (to allow prediction outside sea ice area)
   stack$sic[is.na(stack$sic)] <- 0
@@ -150,11 +150,11 @@ for(i in months){
   
   #save plot
   ggsave(plot = g1, width = 10, height = 8,
-         filename = paste0("output/predictions/", month(this.month, label=T), "_", year(this.month), ".jpeg"))
+         filename = paste0("output/projections/", this.scenario, "/", month(this.month, label=T), "_", year(this.month), ".jpeg"))
   
   #print completion
   print(paste0(month(this.month, label=T), " ", year(this.month), " completed"))
 }
 
 #export
-writeCDF(predictions, "output/predictions/predictions.nc")
+writeCDF(predictions, paste0("output/projections/", this.scenario, "/projections_", this.scenario, ".nc"))

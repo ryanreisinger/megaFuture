@@ -11,10 +11,10 @@ setwd("E://")
 }
 
 #define cmip variable name
-cmip_var <- "chlos"
+cmip_var <- "vas"
 
 #define satellite variable name
-satellite_var <- "chl"
+satellite_var <- "wind_north"
 
 
 # 1. Setup
@@ -56,7 +56,19 @@ all_satellite <- resample(all_satellite, delta_126, method="bilinear")
 
 #sanity checks for units
 plot(all_satellite[[1]])
-plot(delta_126[[1]])
+plot(delta_585[[1]])
+
+#for chlorophyll, transform units to match globcolour
+if(cmip_var == "chlos"){
+  delta_126 <- delta_126 * 1000
+  delta_585 <- delta_585 * 1000
+}
+
+#for sea ice, convert cmip from percentage to fraction
+if(cmip_var == "siconc"){
+  delta_126 <- delta_126 / 100
+  delta_585 <- delta_585 / 100
+}
 
 # 2. Transformations
 
@@ -90,8 +102,8 @@ plot(all_transformed_585[[1]])
 # 3. Export
 
 #export rasampled satellite data
-writeCDF(all_satellite, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_original.nc"))
+writeCDF(all_satellite, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_original.nc"), overwrite = T)
 
 #export transformed satellite data
-writeCDF(all_transformed_126, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp126.nc"))
-writeCDF(all_transformed_585, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp585.nc"))
+writeCDF(all_transformed_126, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp126.nc"), overwrite = T)
+writeCDF(all_transformed_585, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp585.nc"), overwrite = T)
