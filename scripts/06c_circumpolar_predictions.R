@@ -15,16 +15,14 @@ setwd("~/OneDrive - University of Southampton/Documents/Humpbacks")
 # 1. Read in monthly variables and predict each regional model
 
 #read in monthly dynamic variables
-sst <- rast("D:/Satellite_Data/monthly/sst/sst.nc")
-ssh <- rast("D:/Satellite_Data/monthly/ssh/ssh.nc")
-sal <- rast("D:/Satellite_Data/monthly/sal/sal.nc")
-mld <- rast("D:/Satellite_Data/monthly/mld/mld.nc")
-sic <- rast("D:/Satellite_Data/monthly/sic/sic.nc")
-uo <- rast("D:/Satellite_Data/monthly/uo/uo.nc")
-vo <- rast("D:/Satellite_Data/monthly/vo/vo.nc")
+sst <- rast("E:/Satellite_Data/monthly/sst/sst.nc")
+ssh <- rast("E:/Satellite_Data/monthly/ssh/ssh.nc")
+sal <- rast("E:/Satellite_Data/monthly/sal/sal.nc")
+mld <- rast("E:/Satellite_Data/monthly/mld/mld.nc")
+sic <- rast("E:/Satellite_Data/monthly/sic/sic.nc")
 
 #create stack
-dynamic <- c(sst, ssh, sal, mld, sic, uo, vo)
+dynamic <- c(sst, ssh, sal, mld, sic)
 
 #limit to target years and months
 min_year <- 2001
@@ -38,9 +36,9 @@ dynamic <- dynamic[[month(time(dynamic)) %in% months &
 rm(sst, ssh, sal, mld, sic, uo, vo)
 
 #read in static variables
-depth <- rast("D:/Satellite_Data/static/depth/depth.nc")
-dshelf <- rast("D:/Satellite_Data/static/dshelf/dshelf_resampled.nc")
-slope <- rast("D:/Satellite_Data/static/slope/slope.nc")
+depth <- rast("E:/Satellite_Data/static/depth/depth.nc")
+dshelf <- rast("E:/Satellite_Data/static/dshelf/dshelf_resampled.nc")
+slope <- rast("E:/Satellite_Data/static/slope/slope.nc")
 
 #create stack
 static <- c(depth, dshelf, slope)
@@ -80,13 +78,7 @@ for(i in months){
   
   #extract dynamic variables for this month
   stack <- dynamic[[time(dynamic) == this.month]]
-  names(stack) <- c("sst", "ssh", "sal", "mld", "sic", "uo", "vo")
-  
-  #create current layer
-  stack$curr <- sqrt(stack$vo^2 + stack$uo^2)
-  
-  #remove uo and vo
-  stack <- subset(stack, c("uo", "vo"), negate=T)
+  names(stack) <- c("sst", "ssh", "sal", "mld", "sic")
   
   #change sic NAs to 0s (to allow prediction outside sea ice area)
   stack$sic[is.na(stack$sic)] <- 0
