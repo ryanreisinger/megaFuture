@@ -13,6 +13,9 @@ theme_custom <- function () {
       theme(
         text = element_text(colour = "black",
                             size = 9),
+        plot.title = element_text(colour = "black",
+                                  size = 9,
+                                  hjust = 0),
         axis.text = element_text(colour = "black",
                                  size = 8),
         axis.title = element_text(colour = "black",

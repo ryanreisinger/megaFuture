@@ -65,4 +65,7 @@ out/bsam_fits/
 
 # Projections and predictions
 out/large_ignore/
+
+# Figures
+out/figures/
 >>>>>>> f0baadd6d40f697c661aecc52fa04ea38639d9ab
