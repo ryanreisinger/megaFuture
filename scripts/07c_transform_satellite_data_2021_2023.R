@@ -11,10 +11,10 @@ setwd("E://")
 }
 
 #define cmip variable name
-cmip_var <- "tos"
+cmip_var <- "sos"
 
 #define satellite variable name
-satellite_var <- "sst"
+satellite_var <- "sal"
 
 
 # 1. Setup
@@ -25,9 +25,7 @@ delta_585 <- rast(paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/ssp585/mean_
 
 #list monthly satellite rasters
 dir <- paste0("E:/Satellite_Data/monthly/", satellite_var)
-
-satellite <- list.files(path=dir)
-satellite <- satellite[1]
+satellite <- list.files(path=dir, pattern = "2023.nc")
 
 #read in and combine all satellite rasters
 for(i in satellite){
@@ -48,17 +46,15 @@ for(i in satellite){
 plot(all_satellite[[1]])
 
 #project satellite data to cmip projection
-all_satellite <- project(all_satellite, "epsg:4326", use_gdal = F)
+all_satellite <- project(all_satellite, crs(delta_126))
 plot(all_satellite[[1]])
-bank <- all_satellite
 
 #crop cmip extent to that of satellite data
 delta_126 <- crop(delta_126, ext(all_satellite))
 delta_585 <- crop(delta_585, ext(all_satellite))
 
 #resample satellite data to cmip grid
-all_satellite <- resample(all_satellite, delta_126, method="bilinear", gdal = F)
-plot(all_satellite[[1]])
+all_satellite <- resample(all_satellite, delta_126, method="bilinear")
 
 #sanity checks for units
 plot(all_satellite[[1]])
@@ -105,12 +101,13 @@ for(i in 1:12){
 #sanity check
 plot(all_transformed_585[[1]])
 plot(all_transformed_126[[1]])
+plot(all_satellite[[1]])
 
 # 3. Export
 
 #export rasampled satellite data
-writeCDF(all_satellite, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_original.nc"), overwrite = T)
+writeCDF(all_satellite, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_original_2123.nc"), overwrite = T)
 
 #export transformed satellite data
-writeCDF(all_transformed_126, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp126.nc"), overwrite = T)
-writeCDF(all_transformed_585, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp585.nc"), overwrite = T)
+writeCDF(all_transformed_126, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp126_2123.nc"), overwrite = T)
+writeCDF(all_transformed_585, paste0("E:/cmip6_data/CMIP6/deltas/", cmip_var, "/satellite_data/monthly_transformed_ssp585_2123.nc"), overwrite = T)

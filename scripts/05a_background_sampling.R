@@ -15,44 +15,26 @@ rm(list=ls())
 oceans <- readRDS("data/oceans_vect.RDS")
 meta <- read.csv("data/metadata.csv")
 
-#get a list of all regions
-regions <- meta %>%
-  mutate(region = as.factor(region)) %>%
-  pull(region)
-levels(regions)
+#create bounding box from -40 to -80 S
+bbox <- ext(-180, 180, -80, -40) %>%
+  vect()
+crs(bbox) <- "epsg:4326"
 
-#define region
-this.region <- "EastAtlantic"
-
-#read in tracks
-tracks <- readRDS(paste0("data/tracks_by_region/", this.region, "_mpm_6.RDS"))
-
-#limit to below 40 degrees South
-tracks <- tracks %>%
-  filter(y < -40)
-
-#convert to terra
-tracks_terra <- tracks %>%
-  vect(geom = c("x", "y"),
-       crs = "epsg:4326")
+# create mask from intersect of oceans and the bounding box
+mask <- terra::intersect(oceans, bbox)
 
 #visualise
-plot(tracks_terra, pch =".")
-
-#create minimum convex hull
-mch <- convHull(tracks_terra)
-plot(mch, add=T)
-
-#buffer to prevent self intersection error
-mch <- buffer(mch, 0)
-
-#intersect mch with oceans to avoid sampling on land
-mask <- terra::intersect(mch, oceans)
 plot(mask)
+
+# read in tracks
+tracks <- readRDS("data/all_tracks.RDS")
+
+# plot to check
+plot(tracks %>% vect(geom = c("x", "y"), crs = "epsg:4326"), pch = ".", add = T)
 
 #create background points
 back <- spatSample(mask, size = nrow(tracks))
-plot(back, pch = ".", add = T)
+plot(back, pch = ".", add = T, col = "red3")
 
 #convert to dataframe
 back <- as.data.frame(back, geom = "XY")
@@ -62,7 +44,7 @@ back <- back %>% select(x, y)
 back <- back %>% 
   mutate(individual_id = tracks$individual_id,
          date = tracks$date,
-         region = this.region)
+         region = tracks$region)
 
 #export 
-saveRDS(back, file = paste0("output/background/", this.region, "_background.RDS"))
+saveRDS(back, file = "output/background/background_samples.RDS")

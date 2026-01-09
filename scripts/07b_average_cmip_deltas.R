@@ -11,7 +11,7 @@ rm(list=ls())
 
 
 #define variable 
-which_var <- "chlos"
+which_var <- "zos"
 
 #set working directory to delta folder
 setwd(paste0("E:/cmip6_data/CMIP6/deltas/", which_var))
@@ -56,7 +56,7 @@ for(i in 1:12){
   this_month <- ssp126_delta[[month(time(ssp126_delta)) == i]]
   
   #average this months deltas
-  this_month_mean <- mean(this_month)
+  this_month_mean <- mean(this_month, na.rm = T)
   
   #assign time
   time(this_month_mean) <- time(this_month)[1]
@@ -101,7 +101,7 @@ for(i in 1:12){
   this_month <- ssp585_delta[[month(time(ssp585_delta)) == i]]
   
   #average this months deltas
-  this_month_mean <- mean(this_month)
+  this_month_mean <- mean(this_month, na.rm = T)
   
   #assign time
   time(this_month_mean) <- time(this_month)[1]
@@ -121,7 +121,9 @@ plot(ssp585_mean_delta)
 # 3. Export
 
 #export ssp126
-writeCDF(ssp126_mean_delta, filename = paste0("ssp126/mean_ssp126_", which_var, "_delta.nc"))
+writeCDF(ssp126_mean_delta, filename = paste0("ssp126/mean_ssp126_", which_var, "_delta.nc"),
+         overwrite = T)
 
 #export ssp585
-writeCDF(ssp585_mean_delta, filename = paste0("ssp585/mean_ssp585_", which_var, "_delta.nc"))
+writeCDF(ssp585_mean_delta, filename = paste0("ssp585/mean_ssp585_", which_var, "_delta.nc"),
+         overwrite = T)
