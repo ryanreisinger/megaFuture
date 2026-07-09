@@ -322,14 +322,14 @@ ssp126_list <- lapply(ssp126_files, rast)
 ssp126_stack <- rast(ssp126_list)
 ssp126_mean <- app(ssp126_stack, mean, na.rm = TRUE)
 
+# project
+present <- project(present, "EPSG:6932")
+ssp126_mean <- project(ssp126_mean, "EPSG:6932")
+ssp585_mean <- project(ssp585_mean, "EPSG:6932")
+
 # calculate differences
 diff126 <- ssp126_mean - present
 diff585 <- ssp585_mean - present
-
-# project
-present <- project(present, "EPSG:6932")
-diff126 <- project(diff126, "EPSG:6932")
-diff585 <- project(diff585, "EPSG:6932")
 
 # read in coastline for plotting
 coast <- readRDS("data/coast_ice_vect.RDS")
@@ -339,39 +339,78 @@ min <- min(c(minmax(diff126)[1,], minmax(diff585)[1,]))
 max <- max(c(minmax(diff126)[2,], minmax(diff585)[2,]))
 abs_max <- max(abs(min), abs(max))
 
-# plots
+# get min and max overall values
+min <- min(c(minmax(present)[1,], minmax(ssp126_mean)[1,], minmax(ssp585_mean)[1,]))
+max <- max(c(minmax(present)[2,], minmax(ssp126_mean)[2,], minmax(ssp585_mean)[2,]))
+
+# plot
 p1 <- ggplot() +
   geom_spatraster(data = present) +
-  geom_spatvector(data = coast, col = NA, fill = "white") +
-  scale_fill_viridis_c(na.value = "transparent", name = "Habitat Persistence") + 
-  theme_void()
+  scale_fill_gradient(low = "#152A3B", high = "#ddeaf2", na.value = "#152A3B",
+                      guide = "none", limits = c(0,10)) +
+  geom_spatvector(data = coast, fill = "white", col = NA) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#152A3B", color = NA),
+        plot.title = element_text(color = "white", hjust = 0.5, size = 20))
 p1 + ggview::canvas(width = 10, height = 10)
 
 p2 <- ggplot() +
-  geom_spatraster(data = diff126) +
-  geom_spatvector(data = coast, col = NA, fill = "white") +
-  scale_fill_gradient2(high = "steelblue4", low = "darkred", mid = "grey90", 
-                       limits = c(-abs_max, abs_max), na.value = "transparent",
-                       name = "SSP126 Difference") +
-  theme_void()
+  geom_spatraster(data = ssp126_mean) +
+  scale_fill_gradient(low = "#152A3B", high = "#ddeaf2", na.value = "#152A3B",
+                      guide = "none", limits = c(0,10)) +
+  geom_spatvector(data = coast, fill = "white", col = NA) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#152A3B", color = NA),
+        plot.title = element_text(color = "white", hjust = 0.5, size = 20))
 p2 + ggview::canvas(width = 10, height = 10)
 
 p3 <- ggplot() +
-  geom_spatraster(data = diff585) +
-  geom_spatvector(data = coast, col = NA, fill = "white") +
-  scale_fill_gradient2(high = "steelblue4", low = "darkred", mid = "grey90",
-                       limits = c(-abs_max, abs_max), na.value = "transparent",
-                       name = "SSP585 Difference") +
-  theme_void()
+  geom_spatraster(data = ssp585_mean) +
+  scale_fill_gradient(low = "#152A3B", high = "#ddeaf2", na.value = "#152A3B",
+                      guide = "none", limits = c(0,10)) +
+  geom_spatvector(data = coast, fill = "white", col = NA) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#152A3B", color = NA),
+        plot.title = element_text(color = "white", hjust = 0.5, size = 20))
 p3 + ggview::canvas(width = 10, height = 10)
 
-# plot together
-grid <- cowplot::plot_grid(p1, p2, p3, ncol = 1)
-grid + ggview::canvas(width = 8, height = 14)
+p4 <- ggplot() +
+  geom_spatraster(data = diff126) +
+  geom_spatvector(data = coast, col = "grey30", fill = "grey30") +
+  scale_fill_gradient2(high = "steelblue4", low = "darkred", mid = "grey90", 
+                       na.value = "grey30",
+                       limits = c(-abs_max, abs_max),
+                       guide = "none") +
+  theme(plot.background = element_rect(fill = "grey90", color = NA)) +
+  theme_void()
+p4 + ggview::canvas(width = 10, height = 10)
+
+p5 <- ggplot() +
+  geom_spatraster(data = diff585) +
+  geom_spatvector(data = coast, col = "grey30", fill = "grey30") +
+  scale_fill_gradient2(high = "steelblue4", low = "darkred", mid = "grey90",
+                       na.value = "grey30",
+                       limits = c(-abs_max, abs_max),
+                       guide = "none") +
+  theme(plot.background = element_rect(fill = "grey90", color = NA)) +
+  theme_void()
+p5 + ggview::canvas(width = 10, height = 10)
+
+# # plot together
+# grid <- cowplot::plot_grid(p1, p2, p3, p4, p5, ncol = 2)
+# grid + ggview::canvas(width = 14, height = 14)
 
 # export
-ggsave("output/imagery/persistence/1. Persistence.png", grid,
-       height = 14, width = 8)
+ggsave("output/imagery/persistence/1. Persistence Present.png", p1,
+       height = 10, width = 10)
+ggsave("output/imagery/persistence/2. Persistence SSP126.png", p2,
+       height = 10, width = 10)
+ggsave("output/imagery/persistence/3. Persistence SSP585.png", p3,
+       height = 10, width = 10)
+ggsave("output/imagery/persistence/4. Persistence Difference SSP126.png", p4,
+       height = 10, width = 10)
+ggsave("output/imagery/persistence/5. Persistence Difference SSP585.png", p5,
+       height = 10, width = 10)
 
 
 #-------------------------------------------------------------------------------

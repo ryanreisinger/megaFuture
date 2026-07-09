@@ -41,11 +41,14 @@ ukesm585 <- rast("output/projections/ssp585/UKESM1-0-LL/ensemble_prediction.tif"
 ssp585_stack <- c(access585, can585, cesm585, hadgem585, ipsl585, mri585, nor585, ukesm585)
 
 # desired months
-months <- c(10, 11, 12, 1, 2, 3, 4, 5, 6, 7)
+months <- c(10:12, 1:7)
 
 # for each month, calculate the mean projected suitability
 for(this_month in months){
   print(this_month)
+  
+  # limit present day to this month
+  present_month <- present[[month(time(present)) == this_month]]
   
   # limit projections to this month
   month126 <- ssp126_stack[[month(time(ssp126_stack)) == this_month]]
@@ -56,58 +59,113 @@ for(this_month in months){
   mean585 <- app(month585, mean, na.rm = T)
   
   # calculate difference from present day
-  diff126 <- mean126 - present[[month(time(present)) == this_month]]
-  diff585 <- mean585 - present[[month(time(present)) == this_month]]
+  diff126 <- mean126 - present_month
+  diff585 <- mean585 - present_month
   
-  # join mean and difference rasters to all months
-  if(this_month == months[1]){
-    all_mean126 <- mean126
-    all_mean585 <- mean585
-    all_diff126 <- diff126
-    all_diff585 <- diff585
-  } else {
-    all_mean126 <- c(all_mean126, mean126)
-    all_mean585 <- c(all_mean585, mean585)
-    all_diff126 <- c(all_diff126, diff126)
-    all_diff585 <- c(all_diff585, diff585)
-  }
+  # project 
+  present_month <- project(present_month, "epsg:6932")
+  mean126 <- project(mean126, "epsg:6932")
+  mean585 <- project(mean585, "epsg:6932")
+  diff126 <- project(diff126, "epsg:6932")
+  diff585 <- project(diff585, "epsg:6932")
+  
+  # get max values for plotting
+  max_val <- max(minmax(present_month)[2,], 
+                 minmax(mean126)[2,],
+                 minmax(mean585)[2,])
+  diff_max <- max(abs(minmax(diff126)[1,]), abs(minmax(diff126)[2,]),
+                  abs(minmax(diff585)[1,]), abs(minmax(diff585)[2,])) %>%
+    abs()
+  
+  # load in coastline
+  coast <- readRDS("data/coast_ice_vect.RDS")
+  
+  # create plots
+  p1 <- ggplot() +
+    geom_spatraster(data = present_month) +
+    scale_fill_gradient(low = "#152A3B", high = "#ddeaf2", na.value = "white",
+                        guide = "none", limits = c(0, max_val)) +
+    geom_spatvector(data = coast, fill = "white", col = "white") +
+    theme_void() +
+    theme(plot.background = element_rect(fill = NA, color = NA),
+          plot.title = element_text(hjust = 0.5, size = 12, face = "bold")) +
+    ggtitle("Present (2000-2020)") 
+  
+  p2 <- ggplot() +
+    geom_spatraster(data = mean126) +
+    scale_fill_gradient(low = "#152A3B", high = "#ddeaf2", na.value = "white",
+                        guide = "none", limits = c(0, max_val)) +
+    geom_spatvector(data = coast, fill = "white", col = "white") +
+    theme_void() +
+    theme(plot.background = element_rect(fill = NA, color = NA),
+          plot.title = element_text(hjust = 0.5, size = 12, face = "bold")) +
+    ggtitle("SSP126 (2080-2100)")
+  
+  p3 <- ggplot() +
+    geom_spatraster(data = mean585) +
+    scale_fill_gradient(low = "#152A3B", high = "#ddeaf2", na.value = "white",
+                        guide = "none", limits = c(0, max_val)) +
+    geom_spatvector(data = coast, fill = "white", col = "white") +
+    theme_void() +
+    theme(plot.background = element_rect(fill = NA, color = NA),
+          plot.title = element_text(hjust = 0.5, size = 12, face = "bold")) +
+    ggtitle("SSP585 (2080-2100)")
+  
+  p4 <- ggplot() +
+    geom_spatraster(data = diff126) +
+    scale_fill_gradient2(low = "#67001F", mid = "grey90", high = "#053061", na.value = "white",
+                         guide = "none", limits = c(-diff_max, diff_max)) +
+    geom_spatvector(data = coast, fill = "grey40", col = "grey40") +
+    theme_void() +
+    theme(plot.background = element_rect(fill = NA, color = NA),
+          plot.title = element_text(hjust = 0.5, size = 12, face = "bold")) +
+    ggtitle("Difference (SSP126 - Present)")
+  
+  p5 <- ggplot() +
+    geom_spatraster(data = diff585) +
+    scale_fill_gradient2(low = "#67001F", mid = "grey90", high = "#053061", na.value = "white",
+                         guide = "none", limits = c(-diff_max, diff_max)) +
+    geom_spatvector(data = coast, fill = "grey40", col = "grey40") +
+    theme_void() +
+    theme(plot.background = element_rect(fill = NA, color = NA),
+          plot.title = element_text(hjust = 0.5, size = 12, face = "bold")) +
+    ggtitle("Difference (SSP585 - Present)")
+  
+  # make legend plots for the different scales
+  legend_suitability <- ggplot() +
+    geom_spatraster(data = present_month) +
+    scale_fill_gradient(low = "#152A3B", high = "#ddeaf2", na.value = "white",
+                        name = "Habitat Suitability",
+                        limits = c(0, max_val)) +
+    theme_void() +
+    theme(legend.position = "right",
+          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 8)) +
+    guides(fill = guide_colorbar(barwidth = 1.5, barheight = 10))
+  legend_suitability <- get_legend(legend_suitability)
+  
+  legend_difference <- ggplot() +
+    geom_spatraster(data = diff126) +
+    scale_fill_gradient2(low = "#67001F", mid = "grey90", high = "#053061", na.value = "white",
+                         name = "Change in Habitat Suitability",
+                         limits = c(-diff_max, diff_max)) +
+    theme_void() +
+    theme(legend.position = "right",
+          legend.title = element_text(size = 10),
+          legend.text = element_text(size = 8)) +
+    guides(fill = guide_colorbar(barwidth = 1.5, barheight = 10))
+  legend_difference <- get_legend(legend_difference)
+  
+  # create grid
+  row1 <- plot_grid(p1, legend_suitability, legend_difference, 
+                    ncol = 3, rel_widths = c(1, 0.5, 0.5))
+  row2 <- plot_grid(p2, p4, ncol = 2)
+  row3 <- plot_grid(p3, p5, ncol = 2)
+  grid <- plot_grid(row1, row2, row3, ncol = 1, align = "v")
+  grid + ggview::canvas(width = 10, height = 15)
+  
+  # export
+  ggsave(paste0("output/imagery/supplementary/monthly_plots/grid_", this_month, ".png"),
+         grid, width = 10, height = 15, dpi = 300)
   
 }
-
-# plot example months of mean and difference
-# December - month 3
-pres_dec <- present[[3]]
-mean126_dec <- all_mean126[[3]]
-mean585_dec <- all_mean585[[3]]
-diff126_dec <- all_diff126[[3]]
-diff585_dec <- all_diff585[[3]]
-
-# March - month 6
-pres_mar <- present[[6]]
-mean126_mar <- all_mean126[[6]]
-mean585_mar <- all_mean585[[6]]
-diff126_mar <- all_diff126[[6]]
-diff585_mar <- all_diff585[[6]]
-
-# June - month 9
-pres_jun <- present[[9]]
-mean126_jun <- all_mean126[[9]]
-mean585_jun <- all_mean585[[9]]
-diff126_jun <- all_diff126[[9]]
-diff585_jun <- all_diff585[[9]]
-
-# plot differences in projected form
-diff585_dec <- project(diff585_dec, "epsg:6932")
-ggplot() +
-  geom_spatraster(data = diff585_dec) +
-  scale_fill_gradient2()
-
-diff585_mar <- project(diff585_mar, "epsg:6932")
-ggplot() +
-  geom_spatraster(data = diff585_mar) +
-  scale_fill_gradient2()
-
-diff585_jun <- project(diff585_jun, "epsg:6932")
-ggplot() +
-  geom_spatraster(data = diff585_jun) +
-  scale_fill_gradient2()
